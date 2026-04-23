@@ -24,4 +24,33 @@ environment:
 pipeline:
   - name: Install runner
     runs: |
-      install -Dm644 ../runner/runner.py "${{targets.destdir}}/usr/lib/fortress/runner.py"
+      install -Dm644 /dev/stdin "${{targets.destdir}}/usr/lib/fortress/runner.py" <<'PY'
+      #!/usr/bin/env python3
+      from __future__ import annotations
+      import json
+      import os
+      import sys
+
+      def main() -> int:
+          raw = os.environ.get("FORTRESS_TASK_SPEC", "{}")
+          out_path = os.environ.get("FORTRESS_RESULT_PATH", "/tmp/result.json")
+          try:
+              spec = json.loads(raw)
+          except json.JSONDecodeError as e:
+              write_json(out_path, {"ok": False, "error": f"invalid FORTRESS_TASK_SPEC JSON: {e}"})
+              return 1
+          write_json(out_path, {"ok": True, "echo": spec, "message": "fortress-runner Phase 1 stub"})
+          print(json.dumps({"wrote": out_path, "ok": True}))
+          return 0
+
+      def write_json(path: str, obj) -> None:
+          parent = os.path.dirname(path)
+          if parent:
+              os.makedirs(parent, mode=0o755, exist_ok=True)
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(obj, f, indent=2)
+              f.write("\n")
+
+      if __name__ == "__main__":
+          sys.exit(main())
+      PY
