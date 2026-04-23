@@ -67,6 +67,9 @@ jobs:
             --repository-append "${GITHUB_WORKSPACE}/packages" \
             --keyring-append "${GITHUB_WORKSPACE}/build/melange.rsa.pub" \
             --arch x86_64
+          if [ ! -f "${GITHUB_WORKSPACE}/dist/fortress-exec.tar" ]; then
+            docker save -o "${GITHUB_WORKSPACE}/dist/fortress-exec.tar" "fortress-exec:${GITHUB_SHA}"
+          fi
 
       - name: Install Syft and Grype
         run: |
