@@ -58,6 +58,7 @@ jobs:
           mkdir -p dist
           melange keygen "${GITHUB_WORKSPACE}/build/melange.rsa"
           melange build "${GITHUB_WORKSPACE}/build/melange/fortress-exec.yaml" \
+            --runner docker \
             --signing-key "${GITHUB_WORKSPACE}/build/melange.rsa" \
             --arch x86_64
           apko build "${GITHUB_WORKSPACE}/build/apko/fortress-exec.yaml" \
