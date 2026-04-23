@@ -112,7 +112,7 @@ jobs:
           COSIGN_YES: "true"
         run: |
           set -euxo pipefail
-          SRC="fortress-exec:${GITHUB_SHA}"
+          SRC="fortress-exec:${GITHUB_SHA}-amd64"
           DEST="${ECR_DEV_REPOSITORY_URL}:${GITHUB_SHA}"
           REPO_NAME="${ECR_DEV_REPOSITORY_URL#*/}"
           docker load -i "${GITHUB_WORKSPACE}/dist/fortress-exec.tar"
