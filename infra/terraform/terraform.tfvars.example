@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars (do not commit secrets here).
+aws_region   = "us-east-1"
+github_org   = "YOUR_GITHUB_ORG_OR_USER"
+github_repo  = "chainguard"
+project_name = "fortress"

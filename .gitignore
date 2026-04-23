@@ -1,0 +1,12 @@
+# Melange / apko outputs
+packages/
+*.rsa
+!*.rsa.pub
+dist/
+*.tar
+
+# Terraform
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl

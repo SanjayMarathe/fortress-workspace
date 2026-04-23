@@ -1,0 +1,127 @@
+name: Fortress execution image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "build/**"
+      - ".github/workflows/fortress-exec-image.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  COSIGN_KMS_ARN: ${{ vars.COSIGN_KMS_ARN }}
+  ECR_DEV_REPOSITORY_URL: ${{ vars.ECR_DEV_REPOSITORY_URL }}
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+jobs:
+  build-scan-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required repository variables
+        run: |
+          set -eu
+          ok=1
+          for pair in \
+            "AWS_REGION:${AWS_REGION:-}" \
+            "COSIGN_KMS_ARN:${COSIGN_KMS_ARN:-}" \
+            "ECR_DEV_REPOSITORY_URL:${ECR_DEV_REPOSITORY_URL:-}" \
+            "AWS_ROLE_TO_ASSUME:${AWS_ROLE_TO_ASSUME:-}"; do
+            name="${pair%%:*}"
+            val="${pair#*:}"
+            if [ -z "$val" ]; then
+              echo "::error::Set GitHub repository variable ${name} (see docs/build/phase1-runbook.md)"
+              ok=0
+            fi
+          done
+          [ "$ok" -eq 1 ]
+
+      - name: Build APKs and OCI tarball (Wolfi SDK)
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          docker run --privileged --rm \
+            -e "GIT_SHA=${GITHUB_SHA}" \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            ghcr.io/wolfi-dev/sdk:latest \
+            sh -ceu '
+              melange keygen /work/build/melange.rsa
+              melange build /work/build/melange/fortress-exec.yaml \
+                --signing-key /work/build/melange.rsa \
+                --arch x86_64
+              apko build /work/build/apko/fortress-exec.yaml \
+                "fortress-exec:${GIT_SHA}" \
+                /work/dist/fortress-exec.tar \
+                --repository-append /work/packages \
+                --keyring-append /work/build/melange.rsa.pub \
+                --arch x86_64
+            '
+
+      - name: Install Syft and Grype
+        run: |
+          set -euxo pipefail
+          SYFT_VERSION=1.17.0
+          GRYPE_VERSION=0.84.0
+          curl -sSfL "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" | tar xz -C /tmp
+          sudo install -m755 /tmp/syft /usr/local/bin/syft
+          curl -sSfL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" | tar xz -C /tmp
+          sudo install -m755 /tmp/grype /usr/local/bin/grype
+
+      - name: Generate SPDX SBOM (Syft)
+        run: |
+          set -euxo pipefail
+          syft packages "oci-archive:${GITHUB_WORKSPACE}/dist/fortress-exec.tar" \
+            -o "spdx-json=${GITHUB_WORKSPACE}/dist/sbom.spdx.json"
+
+      - name: Vulnerability gate (Grype)
+        run: |
+          set -euxo pipefail
+          grype "sbom:${GITHUB_WORKSPACE}/dist/sbom.spdx.json" -o table --fail-on high
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+        with:
+          cosign-release: v2.4.1
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push image to ECR and Cosign sign plus verify
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -euxo pipefail
+          SRC="fortress-exec:${GITHUB_SHA}"
+          DEST="${ECR_DEV_REPOSITORY_URL}:${GITHUB_SHA}"
+          REPO_NAME="${ECR_DEV_REPOSITORY_URL#*/}"
+          docker load -i "${GITHUB_WORKSPACE}/dist/fortress-exec.tar"
+          docker tag "${SRC}" "${DEST}"
+          docker push "${DEST}"
+          DIGEST="$(aws ecr describe-images \
+            --repository-name "${REPO_NAME}" \
+            --image-ids "imageTag=${GITHUB_SHA}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          REF="${ECR_DEV_REPOSITORY_URL}@${DIGEST}"
+          KMS_URI="awskms:///${COSIGN_KMS_ARN}"
+          cosign sign --yes --key "${KMS_URI}" "${REF}"
+          cosign verify --key "${KMS_URI}" "${REF}"
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx-json
+          path: dist/sbom.spdx.json

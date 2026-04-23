@@ -1,0 +1,27 @@
+package:
+  name: fortress-runner
+  version: 0.1.0
+  epoch: 0
+  description: Fortress Fargate execution runner files (Phase 1)
+  copyright:
+    - license: Apache-2.0
+      paths:
+        - "*"
+  dependencies:
+    runtime:
+      - python-3.12-base
+
+environment:
+  contents:
+    repositories:
+      - https://packages.wolfi.dev/os
+    keyring:
+      - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+    packages:
+      - wolfi-base
+      - busybox
+
+pipeline:
+  - name: Install runner
+    runs: |
+      install -Dm644 ../runner/runner.py "${{targets.destdir}}/usr/lib/fortress/runner.py"
