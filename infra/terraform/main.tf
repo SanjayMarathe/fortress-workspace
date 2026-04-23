@@ -104,6 +104,7 @@ data "aws_iam_policy_document" "github_actions_ecr_kms" {
     effect = "Allow"
     actions = [
       "kms:DescribeKey",
+      "kms:GetPublicKey",
       "kms:Sign",
       "kms:Verify",
     ]
@@ -140,6 +141,7 @@ data "aws_iam_policy_document" "kms_cosign" {
     }
     actions = [
       "kms:DescribeKey",
+      "kms:GetPublicKey",
       "kms:Sign",
       "kms:Verify",
     ]

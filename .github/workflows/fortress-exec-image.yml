@@ -117,7 +117,11 @@ jobs:
           REPO_NAME="${ECR_DEV_REPOSITORY_URL#*/}"
           docker load -i "${GITHUB_WORKSPACE}/dist/fortress-exec.tar"
           docker tag "${SRC}" "${DEST}"
-          docker push "${DEST}"
+          if aws ecr describe-images --repository-name "${REPO_NAME}" --image-ids "imageTag=${GITHUB_SHA}" >/dev/null 2>&1; then
+            echo "Image tag ${GITHUB_SHA} already exists in ${REPO_NAME}; skipping push."
+          else
+            docker push "${DEST}"
+          fi
           DIGEST="$(aws ecr describe-images \
             --repository-name "${REPO_NAME}" \
             --image-ids "imageTag=${GITHUB_SHA}" \
