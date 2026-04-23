@@ -84,7 +84,7 @@ jobs:
       - name: Generate SPDX SBOM (Syft)
         run: |
           set -euxo pipefail
-          syft packages "oci-archive:${GITHUB_WORKSPACE}/dist/fortress-exec.tar" \
+          syft scan "docker:fortress-exec:${GITHUB_SHA}" \
             -o "spdx-json=${GITHUB_WORKSPACE}/dist/sbom.spdx.json"
 
       - name: Vulnerability gate (Grype)
