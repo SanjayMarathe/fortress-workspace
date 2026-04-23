@@ -24,7 +24,7 @@ variable "github_oidc_thumbprints" {
   type        = list(string)
   description = "TLS thumbprints for token.actions.githubusercontent.com (update if GitHub rotates)."
   default = [
-    "693a5e014dfb4d69b6e41474cc2b1e63702d5bf69",
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
     "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
   ]
 }

@@ -42,27 +42,30 @@ jobs:
           done
           [ "$ok" -eq 1 ]
 
-      - name: Build APKs and OCI tarball (Wolfi SDK)
+      - name: Install Melange and apko
+        run: |
+          set -euxo pipefail
+          MELANGE_VERSION=0.46.0
+          APKO_VERSION=1.2.2
+          curl -sSfL "https://github.com/chainguard-dev/melange/releases/download/v${MELANGE_VERSION}/melange_${MELANGE_VERSION}_linux_amd64.tar.gz" | tar xz -C /tmp
+          sudo install -m755 /tmp/melange /usr/local/bin/melange
+          curl -sSfL "https://github.com/chainguard-dev/apko/releases/download/v${APKO_VERSION}/apko_${APKO_VERSION}_linux_amd64.tar.gz" | tar xz -C /tmp
+          sudo install -m755 /tmp/apko /usr/local/bin/apko
+
+      - name: Build APKs and OCI tarball
         run: |
           set -euxo pipefail
           mkdir -p dist
-          docker run --privileged --rm \
-            -e "GIT_SHA=${GITHUB_SHA}" \
-            -v "${GITHUB_WORKSPACE}:/work" \
-            -w /work \
-            ghcr.io/wolfi-dev/sdk:latest \
-            sh -ceu '
-              melange keygen /work/build/melange.rsa
-              melange build /work/build/melange/fortress-exec.yaml \
-                --signing-key /work/build/melange.rsa \
-                --arch x86_64
-              apko build /work/build/apko/fortress-exec.yaml \
-                "fortress-exec:${GIT_SHA}" \
-                /work/dist/fortress-exec.tar \
-                --repository-append /work/packages \
-                --keyring-append /work/build/melange.rsa.pub \
-                --arch x86_64
-            '
+          melange keygen "${GITHUB_WORKSPACE}/build/melange.rsa"
+          melange build "${GITHUB_WORKSPACE}/build/melange/fortress-exec.yaml" \
+            --signing-key "${GITHUB_WORKSPACE}/build/melange.rsa" \
+            --arch x86_64
+          apko build "${GITHUB_WORKSPACE}/build/apko/fortress-exec.yaml" \
+            "fortress-exec:${GITHUB_SHA}" \
+            "${GITHUB_WORKSPACE}/dist/fortress-exec.tar" \
+            --repository-append "${GITHUB_WORKSPACE}/packages" \
+            --keyring-append "${GITHUB_WORKSPACE}/build/melange.rsa.pub" \
+            --arch x86_64
 
       - name: Install Syft and Grype
         run: |
