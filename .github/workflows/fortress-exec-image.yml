@@ -48,9 +48,9 @@ jobs:
           MELANGE_VERSION=0.46.0
           APKO_VERSION=1.2.2
           curl -sSfL "https://github.com/chainguard-dev/melange/releases/download/v${MELANGE_VERSION}/melange_${MELANGE_VERSION}_linux_amd64.tar.gz" | tar xz -C /tmp
-          sudo install -m755 /tmp/melange /usr/local/bin/melange
+          sudo install -m755 "/tmp/melange_${MELANGE_VERSION}_linux_amd64/melange" /usr/local/bin/melange
           curl -sSfL "https://github.com/chainguard-dev/apko/releases/download/v${APKO_VERSION}/apko_${APKO_VERSION}_linux_amd64.tar.gz" | tar xz -C /tmp
-          sudo install -m755 /tmp/apko /usr/local/bin/apko
+          sudo install -m755 "/tmp/apko_${APKO_VERSION}_linux_amd64/apko" /usr/local/bin/apko
 
       - name: Build APKs and OCI tarball
         run: |
